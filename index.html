@@ -3,99 +3,185 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AI Voice Call Sia</title>
-    
-    <!-- Do alag CDNs use kar rahe hain taake agar ek block ho to doosra chale -->
-    <script src="https://unpkg.com/@vapi-ai/web@latest/dist/vapi-public.js"></script>
+    <title>AI Assistant Pro</title>
     <script src="https://cdn.jsdelivr.net/gh/VapiAI/html-script-tag@latest/dist/vapi-public.js"></script>
-
     <style>
-        body { margin: 0; background: #000; font-family: sans-serif; height: 100vh; color: white; display: flex; flex-direction: column; overflow: hidden; }
-        #ai-part { flex: 1; position: relative; background: #111; border-bottom: 2px solid #333; }
-        #ai-img { width: 100%; height: 100%; object-fit: cover; }
-        #status-bar { position: absolute; top: 20px; left: 20px; background: rgba(0,0,0,0.8); padding: 5px 15px; border-radius: 20px; font-size: 14px; border: 1px solid #555; }
-        #user-part { flex: 1; background: #222; position: relative; }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { margin: 0; background: #0b0b0b; font-family: 'Segoe UI', Roboto, sans-serif; height: 100vh; color: white; overflow: hidden; display: flex; flex-direction: column; }
+
+        /* AI Avatar Main View */
+        #main-view { flex: 1; position: relative; background: #000; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+        #ai-img { width: 100%; height: 100%; object-fit: cover; transition: all 0.5s; }
+        
+        /* Floating User Camera (Top Right) */
+        #user-cam-container { position: absolute; top: 15px; right: 15px; width: 100px; height: 130px; border-radius: 12px; overflow: hidden; border: 2px solid #3498db; z-index: 100; background: #222; box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
         #user-vid { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
-        .controls { position: absolute; bottom: 100px; left: 0; right: 0; display: flex; flex-direction: column; align-items: center; gap: 15px; z-index: 100; }
-        button { width: 220px; padding: 20px; border-radius: 50px; border: none; font-size: 18px; font-weight: bold; cursor: pointer; box-shadow: 0 5px 20px rgba(0,0,0,0.5); }
-        #call-btn { background: #2ecc71; color: #000; }
-        #log { font-size: 11px; color: #888; text-align: center; margin-top: 5px; }
+
+        /* Top Controls (Flash, Switch, Pause) */
+        .top-tools { position: absolute; top: 15px; left: 15px; display: flex; flex-direction: column; gap: 10px; z-index: 100; }
+        .tool-btn { background: rgba(0,0,0,0.6); border: 1px solid #444; color: white; padding: 10px; border-radius: 50%; width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+
+        /* Call Options Overlay */
+        .call-modes { position: absolute; bottom: 180px; width: 100%; display: flex; justify-content: center; gap: 15px; z-index: 90; }
+        .mode-btn { padding: 12px 20px; border-radius: 25px; border: none; font-weight: bold; font-size: 14px; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.4); }
+        #video-mode-btn { background: #2ecc71; color: white; }
+        #voice-mode-btn { background: #3498db; color: white; }
+
+        /* Chat Section at Bottom */
+        #chat-area { height: 160px; background: #1a1a1a; border-top: 1px solid #333; display: flex; flex-direction: column; padding: 10px; }
+        #messages { flex: 1; overflow-y: auto; font-size: 13px; margin-bottom: 8px; color: #bbb; }
+        .chat-input-row { display: flex; gap: 8px; }
+        #chat-input { flex: 1; background: #2b2b2b; border: 1px solid #444; border-radius: 20px; padding: 8px 15px; color: white; outline: none; }
+        #send-btn { background: #3498db; border: none; color: white; padding: 8px 15px; border-radius: 20px; font-weight: bold; }
+
+        .hidden { display: none !important; }
+        .pulse { animation: pulse-red 2s infinite; }
+        @keyframes pulse-red { 0% { box-shadow: 0 0 0 0 rgba(231, 76, 60, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(231, 76, 60, 0); } 100% { box-shadow: 0 0 0 0 rgba(231, 76, 60, 0); } }
     </style>
 </head>
 <body>
 
-    <div id="ai-part">
+    <div id="main-view">
         <img id="ai-img" src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=600&q=80">
-        <div id="status-bar">System: Starting...</div>
+        
+        <!-- Floating User Camera -->
+        <div id="user-cam-container">
+            <video id="user-vid" autoplay playsinline muted></video>
+        </div>
+
+        <!-- Top Tools -->
+        <div class="top-tools">
+            <button class="tool-btn" onclick="toggleFlash()">🔦</button>
+            <button class="tool-btn" onclick="switchCamera()">🔄</button>
+            <button class="tool-btn" id="pause-btn" onclick="togglePause()">⏸️</button>
+        </div>
+
+        <!-- Call Mode Selection -->
+        <div class="call-modes" id="mode-selector">
+            <button class="mode-btn" id="video-mode-btn" onclick="startCall('video')">📹 Video Call</button>
+            <button class="mode-btn" id="voice-mode-btn" onclick="startCall('voice')">📞 Voice Call</button>
+        </div>
     </div>
 
-    <div id="user-part">
-        <video id="user-vid" autoplay playsinline muted></video>
-        <div class="controls">
-            <button id="call-btn" onclick="checkAndStart()">START AI CALL</button>
-            <p id="log">Checking Vapi Library...</p>
+    <!-- Chat Section -->
+    <div id="chat-area">
+        <div id="messages">System: Ready for Call...</div>
+        <div class="chat-input-row">
+            <input type="text" id="chat-input" placeholder="Type a message...">
+            <button id="send-btn" onclick="sendTextMsg()">Send</button>
         </div>
     </div>
 
     <script>
-        const KEY = "17f855a236e6451c9379a1bcdb353b48";
-        let vapi = null;
-        let isCalling = false;
+        const vapi = new Vapi("17f855a236e6451c9379a1bcdb353b48");
+        let activeCall = false;
+        let isPaused = false;
+        let camMode = "user";
+        let stream = null;
+        let flashOn = false;
 
         // Camera Initialization
-        async function startCamera() {
+        async function initCamera() {
             try {
-                const s = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-                document.getElementById('user-vid').srcObject = s;
-                checkLibrary();
+                if (stream) stream.getTracks().forEach(t => t.stop());
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: camMode }, 
+                    audio: true 
+                });
+                document.getElementById('user-vid').srcObject = stream;
+                document.getElementById('user-vid').style.transform = (camMode === "user") ? "scaleX(-1)" : "scaleX(1)";
             } catch (e) {
-                document.getElementById('log').innerText = "Permission Denied! Check Settings.";
+                addLog("Camera Error: Check Permissions.");
             }
         }
 
-        // Check if Library is loaded
-        function checkLibrary() {
-            if (typeof Vapi !== 'undefined') {
-                document.getElementById('log').innerText = "Vapi Ready! You can call now.";
-                document.getElementById('status-bar').innerText = "System: Ready";
-                document.getElementById('status-bar').style.color = "#2ecc71";
+        // Start Call (Video or Voice)
+        async function startCall(mode) {
+            if(activeCall) return;
+            
+            addLog("Starting " + mode + " call...");
+            if(mode === 'voice') {
+                document.getElementById('user-cam-container').classList.add('hidden');
+                document.getElementById('ai-img').style.filter = "blur(10px)";
             } else {
-                setTimeout(checkLibrary, 1000); // Har 1 second baad check karega
+                document.getElementById('user-cam-container').classList.remove('hidden');
+                document.getElementById('ai-img').style.filter = "none";
+            }
+
+            try {
+                vapi.start({
+                    model: { provider: "openai", model: "gpt-4", messages: [{ role: "system", content: "Your name is Elena. Talk in Roman Urdu and English. Be friendly." }] },
+                    voice: { provider: "elevenlabs", voiceId: "21m00Tcm4TlvDq8ikWAM" }
+                });
+
+                vapi.on('call-start', () => {
+                    activeCall = true;
+                    document.getElementById('mode-selector').classList.add('hidden');
+                    document.getElementById('pause-btn').classList.add('pulse');
+                    addLog("Elena: Hello! I'm online.");
+                });
+
+                vapi.on('speech-start', () => { addLog("Elena is speaking..."); });
+                vapi.on('error', (e) => { addLog("Error: " + e.message); });
+
+            } catch (err) {
+                addLog("Call Failed: " + err.message);
             }
         }
 
-        async function checkAndStart() {
-            if (typeof Vapi === 'undefined') {
-                alert("Library is still loading... please wait 5 more seconds.");
+        // Flashlight Logic
+        async function toggleFlash() {
+            if(camMode === "user") {
+                alert("Flash only works on Back Camera!");
                 return;
             }
-
-            if (!isCalling) {
-                try {
-                    vapi = new Vapi(KEY);
-                    vapi.start({
-                        model: { provider: "openai", model: "gpt-4", messages: [{ role: "system", content: "Your name is Elena. Talk in Roman Urdu." }] },
-                        voice: { provider: "elevenlabs", voiceId: "21m00Tcm4TlvDq8ikWAM" }
-                    });
-
-                    vapi.on('call-start', () => {
-                        isCalling = true;
-                        document.getElementById('call-btn').innerText = "END CALL";
-                        document.getElementById('call-btn').style.background = "red";
-                        document.getElementById('status-bar').innerText = "System: ONLINE";
-                        document.getElementById('log').innerText = "Elena is Listening...";
-                    });
-
-                } catch (err) {
-                    alert("Error starting call: " + err.message);
-                }
-            } else {
-                vapi.stop();
-                location.reload();
+            const track = stream.getVideoTracks()[0];
+            flashOn = !flashOn;
+            try {
+                await track.applyConstraints({ advanced: [{ torch: flashOn }] });
+            } catch (e) {
+                addLog("Flash not supported.");
             }
         }
 
-        window.onload = startCamera;
+        // Switch Camera
+        function switchCamera() {
+            camMode = (camMode === "user") ? "environment" : "user";
+            initCamera();
+        }
+
+        // Pause Logic
+        function togglePause() {
+            if(!activeCall) return;
+            isPaused = !isPaused;
+            if(isPaused) {
+                vapi.setMuted(true);
+                document.getElementById('pause-btn').innerText = "▶️";
+                addLog("Call Paused.");
+            } else {
+                vapi.setMuted(false);
+                document.getElementById('pause-btn').innerText = "⏸️";
+                addLog("Call Resumed.");
+            }
+        }
+
+        // Text Chat Simulation
+        function sendTextMsg() {
+            const input = document.getElementById('chat-input');
+            if(input.value.trim() === "") return;
+            addLog("You: " + input.value);
+            // Vapi doesn't support text-in during voice call natively in this SDK easily, 
+            // so we just show it on UI.
+            input.value = "";
+        }
+
+        function addLog(msg) {
+            const m = document.getElementById('messages');
+            m.innerHTML += `<div>${msg}</div>`;
+            m.scrollTop = m.scrollHeight;
+        }
+
+        window.onload = initCamera;
     </script>
 </body>
 </html>
