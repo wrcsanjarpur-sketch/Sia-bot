@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AI Voice Call Sia</title>
+    
+    <!-- Do alag CDNs use kar rahe hain taake agar ek block ho to doosra chale -->
+    <script src="https://unpkg.com/@vapi-ai/web@latest/dist/vapi-public.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/VapiAI/html-script-tag@latest/dist/vapi-public.js"></script>
+
+    <style>
+        body { margin: 0; background: #000; font-family: sans-serif; height: 100vh; color: white; display: flex; flex-direction: column; overflow: hidden; }
+        #ai-part { flex: 1; position: relative; background: #111; border-bottom: 2px solid #333; }
+        #ai-img { width: 100%; height: 100%; object-fit: cover; }
+        #status-bar { position: absolute; top: 20px; left: 20px; background: rgba(0,0,0,0.8); padding: 5px 15px; border-radius: 20px; font-size: 14px; border: 1px solid #555; }
+        #user-part { flex: 1; background: #222; position: relative; }
+        #user-vid { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+        .controls { position: absolute; bottom: 100px; left: 0; right: 0; display: flex; flex-direction: column; align-items: center; gap: 15px; z-index: 100; }
+        button { width: 220px; padding: 20px; border-radius: 50px; border: none; font-size: 18px; font-weight: bold; cursor: pointer; box-shadow: 0 5px 20px rgba(0,0,0,0.5); }
+        #call-btn { background: #2ecc71; color: #000; }
+        #log { font-size: 11px; color: #888; text-align: center; margin-top: 5px; }
+    </style>
+</head>
+<body>
+
+    <div id="ai-part">
+        <img id="ai-img" src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=600&q=80">
+        <div id="status-bar">System: Starting...</div>
+    </div>
+
+    <div id="user-part">
+        <video id="user-vid" autoplay playsinline muted></video>
+        <div class="controls">
+            <button id="call-btn" onclick="checkAndStart()">START AI CALL</button>
+            <p id="log">Checking Vapi Library...</p>
+        </div>
+    </div>
+
+    <script>
+        const KEY = "17f855a236e6451c9379a1bcdb353b48";
+        let vapi = null;
+        let isCalling = false;
+
+        // Camera Initialization
+        async function startCamera() {
+            try {
+                const s = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                document.getElementById('user-vid').srcObject = s;
+                checkLibrary();
+            } catch (e) {
+                document.getElementById('log').innerText = "Permission Denied! Check Settings.";
+            }
+        }
+
+        // Check if Library is loaded
+        function checkLibrary() {
+            if (typeof Vapi !== 'undefined') {
+                document.getElementById('log').innerText = "Vapi Ready! You can call now.";
+                document.getElementById('status-bar').innerText = "System: Ready";
+                document.getElementById('status-bar').style.color = "#2ecc71";
+            } else {
+                setTimeout(checkLibrary, 1000); // Har 1 second baad check karega
+            }
+        }
+
+        async function checkAndStart() {
+            if (typeof Vapi === 'undefined') {
+                alert("Library is still loading... please wait 5 more seconds.");
+                return;
+            }
+
+            if (!isCalling) {
+                try {
+                    vapi = new Vapi(KEY);
+                    vapi.start({
+                        model: { provider: "openai", model: "gpt-4", messages: [{ role: "system", content: "Your name is Elena. Talk in Roman Urdu." }] },
+                        voice: { provider: "elevenlabs", voiceId: "21m00Tcm4TlvDq8ikWAM" }
+                    });
+
+                    vapi.on('call-start', () => {
+                        isCalling = true;
+                        document.getElementById('call-btn').innerText = "END CALL";
+                        document.getElementById('call-btn').style.background = "red";
+                        document.getElementById('status-bar').innerText = "System: ONLINE";
+                        document.getElementById('log').innerText = "Elena is Listening...";
+                    });
+
+                } catch (err) {
+                    alert("Error starting call: " + err.message);
+                }
+            } else {
+                vapi.stop();
+                location.reload();
+            }
+        }
+
+        window.onload = startCamera;
+    </script>
+</body>
+</html>
